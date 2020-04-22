@@ -11,5 +11,8 @@ func newRouter() *gin.Engine {
 	ping := new(controller.PingController)
 	r.GET("/ping", ping.GetController)
 
+	orders := new(controller.OrdersController)
+	r.POST("/orders", orders.PostController)
+
 	return r
 }

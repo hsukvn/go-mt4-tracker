@@ -1,5 +1,5 @@
 package server
 
 type Config struct {
-	Debug       bool
+	Debug bool
 }

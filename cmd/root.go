@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	debug       bool
-	port        int
+	debug bool
+	port  int
 )
 
 var RootCmd = &cobra.Command{
@@ -15,7 +15,7 @@ var RootCmd = &cobra.Command{
 	Short: "API server to collect mt4 orders",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		s, err := server.NewServer(&server.Config{
-			Debug:       debug,
+			Debug: debug,
 		})
 		if err != nil {
 			return err
