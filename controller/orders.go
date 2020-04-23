@@ -1,11 +1,12 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hsukvn/go-mt4-tracker/util"
 )
 
 type Order struct {
@@ -14,15 +15,46 @@ type Order struct {
 	Symbol          string  `json:"symbol"`
 	Type            int     `json:"type"`
 	Lot             float64 `json:"lot"`
+	Digit           int     `json:"digit"`
 	Price           float64 `json:"price"`
 	StopLoss        float64 `json:"stop_loss"`
 	TakeProfit      float64 `json:"take_profit"`
 	Open            bool    `json:"open"`
 }
 
+func OrderTypeString(t int) string {
+	m := map[int]string{
+		0: "BUY",
+		1: "SELL",
+		2: "BUYLIMIT",
+		3: "SELLLIMIT",
+		4: "BUYSTOP",
+		5: "SELLSTOP",
+	}
+	return m[t]
+}
+
 func (o *Order) Equal(in *Order) bool {
 	return o.Number == in.Number && o.CreateTimestamp == in.CreateTimestamp && o.Symbol == in.Symbol &&
-		o.Type == in.Type && o.Lot == in.Lot && o.Price == in.Price && o.StopLoss == in.StopLoss && o.TakeProfit == in.TakeProfit && o.Open == in.Open
+		o.Type == in.Type && o.Lot == in.Lot && o.Digit == in.Digit && o.Price == in.Price && o.StopLoss == in.StopLoss && o.TakeProfit == in.TakeProfit && o.Open == in.Open
+}
+
+func (o *Order) String() string {
+	// Number/Type/Symbol/Lot/Price/SL/TP
+	return strconv.FormatInt(o.Number, 10) + "/" + OrderTypeString(o.Type) + "/" + o.Symbol + "/" + strconv.FormatFloat(o.Lot, 'f', 2, 64) + "/" + strconv.FormatFloat(o.Price, 'f', o.Digit, 64) +
+		"/" + strconv.FormatFloat(o.StopLoss, 'f', o.Digit, 64) + "/" + strconv.FormatFloat(o.TakeProfit, 'f', o.Digit, 64)
+}
+
+func getOrdersString(os []*Order) string {
+	s := ""
+	for _, o := range os {
+		if len(s) == 0 {
+			s = o.String()
+		} else {
+			s = s + "\n" + o.String()
+		}
+	}
+	return s
 }
 
 type ByNumber []*Order
@@ -55,7 +87,7 @@ func (ctr *OrdersController) PostController(c *gin.Context) {
 	}
 
 	sort.Sort(ByNumber(req.Orders))
-	var newOrder, closedOrder, modifiedOrder []*Order
+	var newOrders, closedOrders, modifiedOrders []*Order
 
 	for _, order := range ctr.Orders {
 		found := false
@@ -63,7 +95,7 @@ func (ctr *OrdersController) PostController(c *gin.Context) {
 			if order.Number == orderNew.Number {
 				found = true
 				if !order.Equal(orderNew) {
-					modifiedOrder = append(modifiedOrder, orderNew)
+					modifiedOrders = append(modifiedOrders, orderNew)
 				}
 				break
 			} else if order.Number < orderNew.Number {
@@ -71,7 +103,7 @@ func (ctr *OrdersController) PostController(c *gin.Context) {
 			}
 		}
 		if found == false {
-			closedOrder = append(closedOrder, order)
+			closedOrders = append(closedOrders, order)
 		}
 	}
 
@@ -86,21 +118,29 @@ func (ctr *OrdersController) PostController(c *gin.Context) {
 			}
 		}
 		if found == false {
-			newOrder = append(newOrder, orderNew)
+			newOrders = append(newOrders, orderNew)
 		}
 	}
 
-	fmt.Println("new")
-	for _, order := range newOrder {
-		fmt.Println(order.Number)
+	if len(newOrders) > 0 {
+		msg := getOrdersString(newOrders)
+		msg = "new orders\n" + msg
+
+		util.SendNotify(msg)
 	}
-	fmt.Println("closed")
-	for _, order := range closedOrder {
-		fmt.Println(order.Number)
+
+	if len(closedOrders) > 0 {
+		msg := getOrdersString(closedOrders)
+		msg = "closed orders\n" + msg
+
+		util.SendNotify(msg)
 	}
-	fmt.Println("modified")
-	for _, order := range modifiedOrder {
-		fmt.Println(order.Number)
+
+	if len(modifiedOrders) > 0 {
+		msg := getOrdersString(modifiedOrders)
+		msg = "modified orders\n" + msg
+
+		util.SendNotify(msg)
 	}
 
 	ctr.Orders = req.Orders
